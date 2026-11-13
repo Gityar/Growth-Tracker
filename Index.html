@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ethio-GrowthTrack</title>
 
+<!-- Firebase SDK (compat build → exposes global `firebase`) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<!-- Chart.js for growth trajectories -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
@@ -39,8 +41,7 @@ header h1 { margin: 0; font-size: 1.3rem; }
 #authBar {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 20px; background: #f1f5f9;
-  border-bottom: 1px solid var(--border);
-  gap: 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap;
 }
 #authBar .user {
   font-size: 0.9rem; color: var(--ink);
@@ -194,7 +195,6 @@ h3 { margin-top: 24px; }
   </div>
 </div>
 
-<!-- Not signed in -->
 <div id="signInGate" class="gate">
   <div class="icon">🔐</div>
   <h2>Please sign in</h2>
@@ -205,7 +205,6 @@ h3 { margin-top: 24px; }
   <button id="signInGateBtn" class="btn primary">Sign in with Google</button>
 </div>
 
-<!-- Signed in but not authorized -->
 <div id="notAuthorizedGate" class="gate">
   <div class="icon">🔒</div>
   <h2>Access not authorized</h2>
@@ -216,14 +215,12 @@ h3 { margin-top: 24px; }
   <p class="muted" style="font-size:0.85rem;">
     Ask the study administrator to add your email to the
     <code>ALLOWED_EMAILS</code> list (in <code>Code.gs</code>) or to the
-    <code>AllowedUsers</code> sheet in the project spreadsheet. After they do,
-    click <strong>Retry</strong>.
+    <code>AllowedUsers</code> sheet. After they do, click <strong>Retry</strong>.
   </p>
   <button id="retryAuthBtn" class="btn primary">Retry</button>
   <button id="signOutNotAuthBtn" class="btn">Sign out</button>
 </div>
 
-<!-- Main app -->
 <div id="appRoot" style="display:none;">
   <nav class="tabs">
     <button class="tab active" data-tab="dashboard">Dashboard</button>
@@ -355,7 +352,10 @@ h3 { margin-top: 24px; }
 
 <script>
 /* ============================================================================
- * CONFIG — paste your Apps Script /exec URL here
+ * CONFIG
+ * ----------------------------------------------------------------------------
+ * API_URL: paste the /exec URL of your Apps Script deployment.
+ * Redeploying via "Manage deployments → New version" keeps this URL the same.
  * ========================================================================== */
 const API_URL = 'https://script.google.com/macros/s/AKfycbwBs_czaujJfRTGcWn_JCQISzWoy690-KYYIpT49AnXrZnPLp4yIfIEtntsj0bL44cc/exec';
 
@@ -372,7 +372,7 @@ const firebaseConfig = {
 
 /* ============================================================================
  * WHO 2006 LMS reference tables (0–24 months WAZ/HAZ; 45–85 cm WHZ)
- * ⚠ Replace with full official WHO tables before clinical use.
+ * Replace with full official tables before clinical deployment.
  * ========================================================================== */
 const WHO_LMS = {
   WAZ: {
@@ -596,9 +596,6 @@ let currentUser = null;
 let currentIdToken = null;
 let hadUser = false;
 
-/* ============================================================================
- * STORAGE
- * ========================================================================== */
 function loadCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
   catch { return {}; }
@@ -616,7 +613,7 @@ function saveQueue() {
 }
 
 /* ============================================================================
- * AUTHENTICATED API CLIENT
+ * API CLIENT
  * ========================================================================== */
 async function apiCall(action, data = {}) {
   if (!currentUser) throw new Error('Not signed in');
@@ -631,19 +628,15 @@ async function apiCall(action, data = {}) {
   let res = await doFetch(currentIdToken);
   let json = await res.json();
 
-  // Refresh token once if it expired mid-session.
-  // Do NOT retry on NOT_AUTHORIZED — retrying won't change the answer.
   if (json && json.code === 'TOKEN_INVALID') {
     try {
       currentIdToken = await currentUser.getIdToken(true);
       res = await doFetch(currentIdToken);
       json = await res.json();
-    } catch (e) { /* fall through and return original error */ }
+    } catch (e) { /* return original error */ }
   }
-
   return json;
 }
-
 async function apiGet(action, params = {}) { return apiCall(action, params); }
 async function apiPostBatch(records) { return apiCall('syncBatch', { records }); }
 
@@ -698,9 +691,6 @@ async function syncQueue() {
   }
 }
 
-/* ============================================================================
- * REFRESH FROM SERVER
- * ========================================================================== */
 async function refreshFromServer() {
   if (!currentUser || !navigator.onLine) return;
   try {
@@ -813,9 +803,6 @@ function showMeasureResult(indices, status, velocity) {
   `;
 }
 
-/* ============================================================================
- * GROWTH CHART
- * ========================================================================== */
 async function renderGrowthChart(childId) {
   const canvas = document.getElementById('growthChart');
   if (!canvas) return;
@@ -864,9 +851,6 @@ async function renderGrowthChart(childId) {
   });
 }
 
-/* ============================================================================
- * FEEDING CALCULATOR
- * ========================================================================== */
 function renderFeedingCalculator(childId) {
   const el = document.getElementById('feedingCalc');
   if (!el) return;
@@ -910,9 +894,6 @@ function renderFeedingCalculator(childId) {
   `;
 }
 
-/* ============================================================================
- * DEFAULTERS
- * ========================================================================== */
 async function loadDefaulters() {
   const daysEl = document.getElementById('defaulterDays');
   const days = (daysEl && daysEl.value) || 14;
@@ -956,9 +937,6 @@ async function loadDefaulters() {
   }
 }
 
-/* ============================================================================
- * SUPPLIES
- * ========================================================================== */
 async function loadSupplies() {
   const el = document.getElementById('suppliesList');
   if (!el) return;
@@ -996,9 +974,6 @@ async function loadSupplies() {
   }
 }
 
-/* ============================================================================
- * UTILITIES
- * ========================================================================== */
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1015,9 +990,6 @@ function viewChild(id) {
   renderFeedingCalculator(id);
 }
 
-/* ============================================================================
- * EVENT BINDING
- * ========================================================================== */
 function bindTabs() {
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1039,10 +1011,8 @@ function bindTabs() {
 
   const syncBtn = document.getElementById('syncBtn');
   if (syncBtn) syncBtn.addEventListener('click', syncQueue);
-
   const refreshBtn = document.getElementById('refreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', refreshFromServer);
-
   const loadDefBtn = document.getElementById('loadDefaulters');
   if (loadDefBtn) loadDefBtn.addEventListener('click', loadDefaulters);
 
@@ -1210,7 +1180,7 @@ function renderUserBadge(user) {
 }
 
 /* ============================================================================
- * FIREBASE AUTH + BACKEND AUTHORIZATION
+ * AUTHORIZATION CHECK
  * ========================================================================== */
 async function checkBackendAuthorization() {
   if (!currentUser) return;
@@ -1233,15 +1203,12 @@ async function checkBackendAuthorization() {
       return;
     }
 
-    // Unexpected response
     console.warn('Unexpected ping response:', ping);
     showUI('not-authorized', { email: user.email });
     alert('Backend error: ' + ((ping && ping.error) || 'Unknown'));
   } catch (e) {
     console.warn('Authorization check failed:', e);
 
-    // Offline fallback: if this same UID was previously authorized on this
-    // device, allow offline access. Otherwise block.
     const lastUid = localStorage.getItem(AUTH_UID_KEY);
     if (!navigator.onLine && lastUid === user.uid) {
       showUI('authorized');
@@ -1270,8 +1237,6 @@ async function handleAuthStateChange(user) {
     if (userEl) userEl.innerHTML = '<span class="muted">Not signed in</span>';
     showUI('signed-out');
 
-    // Wipe local PHI only on explicit sign-out (not on initial page load,
-    // where Firebase briefly fires null before restoring the session).
     if (hadUser) {
       hadUser = false;
       cache = {};
@@ -1294,6 +1259,9 @@ async function handleAuthStateChange(user) {
   await checkBackendAuthorization();
 }
 
+/* ============================================================================
+ * FIREBASE INIT
+ * ========================================================================== */
 function initFirebaseAuth() {
   if (typeof firebase === 'undefined') {
     const el = document.getElementById('authUser');
@@ -1310,9 +1278,12 @@ function initFirebaseAuth() {
       await firebaseAuth.signInWithPopup(googleProvider);
     } catch (err) {
       if (err.code === 'auth/popup-blocked' ||
-          err.code === 'auth/cancelled-popup-request') {
-        try { await firebaseAuth.signInWithRedirect(googleProvider); return; }
-        catch (e2) { /* fall through */ }
+          err.code === 'auth/cancelled-popup-request' ||
+          err.code === 'auth/operation-not-supported-in-this-environment') {
+        try {
+          await firebaseAuth.signInWithRedirect(googleProvider);
+          return;
+        } catch (e2) { /* fall through */ }
       }
       alert('Sign-in failed: ' + (err.message || err.code || 'unknown error'));
     }
@@ -1356,14 +1327,15 @@ function initFirebaseAuth() {
     }
   });
 
+  // Handle return from redirect fallback
   firebaseAuth.getRedirectResult().catch(() => {});
+
   firebaseAuth.onAuthStateChanged(handleAuthStateChange);
 
-  // Refresh the ID token every 50 min so long field sessions stay signed in.
   setInterval(async () => {
     if (currentUser) {
       try { currentIdToken = await currentUser.getIdToken(true); }
-      catch (e) { /* will refresh on next API call */ }
+      catch (e) { /* refresh next call */ }
     }
   }, 50 * 60 * 1000);
 }
