@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ethio-GrowthTrack</title>
+
+<!-- Chart.js is loaded from CDN. App works offline for data capture without it. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+
+<style>
+/* ============================================================================
+ * STYLES
+ * ========================================================================== */
+:root {
+  --bg: #f8fafc; --card: #ffffff; --ink: #0f172a; --muted: #64748b;
+  --primary: #2563eb; --ok: #16a34a; --caution: #f59e0b; --warn: #dc2626;
+  --border: #e2e8f0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.4;
+}
+header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px; background: var(--primary); color: white;
+  flex-wrap: wrap; gap: 10px;
+}
+header h1 { margin: 0; font-size: 1.3rem; }
+.tagline { font-size: 0.8rem; opacity: 0.85; display: block; }
+.status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill {
+  background: rgba(255,255,255,0.15); padding: 4px 10px;
+  border-radius: 999px; font-size: 0.75rem;
+}
+.pill.ok { background: rgba(22,163,74,0.35); }
+.pill.warn { background: rgba(220,38,38,0.35); }
+
+nav.tabs {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 16px;
+  background: white; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 5;
+}
+.tab {
+  background: none; border: 1px solid transparent;
+  padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  font-size: 0.9rem; color: var(--muted); font: inherit;
+}
+.tab.active { background: var(--primary); color: white; }
+
+main { padding: 20px; max-width: 1000px; margin: 0 auto; }
+.panel { display: none; }
+.panel.active { display: block; }
+h2 { margin-top: 0; }
+h3 { margin-top: 24px; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.msg { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+.msg.warn { color: var(--warn); }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.stat {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px;
+  font-size: 0.85rem; color: var(--muted);
+}
+.stat span {
+  display: block; font-size: 1.8rem; font-weight: 700;
+  color: var(--ink); margin-bottom: 4px;
+}
+.stat.warn span { color: var(--warn); }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px; gap: 12px; flex-wrap: wrap;
+}
+.row .actions { display: flex; gap: 8px; }
+.group { margin-bottom: 16px; }
+.group h3 { margin: 12px 0 8px; font-size: 1rem; }
+
+.form {
+  display: grid; gap: 12px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; max-width: 560px;
+}
+.form label {
+  display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem;
+}
+.form input, .form select, .form textarea {
+  padding: 10px; border: 1px solid var(--border);
+  border-radius: 8px; font: inherit; background: white;
+}
+.btn {
+  padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--border); background: white;
+  cursor: pointer; font: inherit; color: inherit;
+  text-decoration: none; display: inline-block;
+}
+.btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn:hover { filter: brightness(0.97); }
+
+.result {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin: 16px 0; max-width: 560px;
+}
+.zscore-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
+.status-badge {
+  display: inline-block; padding: 6px 14px;
+  border-radius: 999px; font-weight: 600; font-size: 0.85rem;
+}
+.status-badge.ok { background: #dcfce7; color: var(--ok); }
+.status-badge.caution { background: #fef3c7; color: var(--caution); }
+.status-badge.warn { background: #fee2e2; color: var(--warn); }
+
+.chart-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-top: 16px;
+  max-height: 440px;
+}
+
+.calc {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 16px;
+  max-width: 640px;
+}
+.calc-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.calc-table th, .calc-table td {
+  text-align: left; padding: 8px;
+  border-bottom: 1px solid var(--border); font-size: 0.9rem;
+}
+.calc-table th { background: #f1f5f9; }
+
+@media (max-width: 600px) {
+  .row { flex-direction: column; align-items: flex-start; }
+  header { flex-direction: column; align-items: flex-start; }
+  main { padding: 12px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Ethio-GrowthTrack</h1>
+    <span class="tagline">Offline-first SAM/MAM early warning &amp; feeding</span>
+  </div>
+  <div class="status">
+    <span id="netStatus" class="pill">● checking…</span>
+    <span id="queueStatus" class="pill">0 queued</span>
+    <button id="syncBtn" class="btn">Sync</button>
+    <button id="refreshBtn" class="btn">Refresh</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="children">Children</button>
+  <button class="tab" data-tab="newchild">New Child</button>
+  <button class="tab" data-tab="measure">Measurement</button>
+  <button class="tab" data-tab="feeding">Feeding</button>
+  <button class="tab" data-tab="defaulters">Defaulters</button>
+  <button class="tab" data-tab="supplies">Supplies</button>
+</nav>
+
+<main>
+
+<!-- Dashboard -->
+<section id="tab-dashboard" class="panel active">
+  <h2>Dashboard</h2>
+  <div id="dashboardStats" class="stats">
+    <div class="stat"><span>—</span>Active children</div>
+    <div class="stat"><span>—</span>Measurements</div>
+    <div class="stat"><span>—</span>Defaulters (14d)</div>
+    <div class="stat"><span>—</span>SAM episodes</div>
+    <div class="stat"><span>—</span>MAM episodes</div>
+  </div>
+  <p class="muted">Last refreshed: <span id="lastRefresh">—</span></p>
+</section>
+
+<!-- Children -->
+<section id="tab-children" class="panel">
+  <h2>Children</h2>
+  <input id="childSearch" type="search" placeholder="Search by name or kebele…"
+         style="width:100%;max-width:420px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font:inherit;">
+  <div id="childrenList" class="list"></div>
+</section>
+
+<!-- New Child -->
+<section id="tab-newchild" class="panel">
+  <h2>Register New Child</h2>
+  <form id="newChildForm" class="form">
+    <label>Name * <input name="Name" required></label>
+    <label>Date of Birth * <input name="DOB" type="date" required></label>
+    <label>Sex *
+      <select name="Sex" required>
+        <option value="">—</option>
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+      </select>
+    </label>
+    <label>Kebele <input name="Kebele"></label>
+    <label>Village / Gote <input name="Village"></label>
+    <label>Caregiver Name <input name="CaregiverName"></label>
+    <label>Caregiver Phone <input name="CaregiverPhone" type="tel"></label>
+    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+    <button type="submit" class="btn primary">Save Child</button>
+    <p id="newChildMsg" class="msg"></p>
+  </form>
+</section>
+
+<!-- Measurement -->
+<section id="tab-measure" class="panel">
+  <h2>Record Measurement</h2>
+  <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
+    Child
+    <select id="measureChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
+      <option value="">— select child —</option>
+    </select>
+  </label>
+  <form id="measurementForm" class="form">
+    <label>Date * <input name="Date" type="date" required></label>
+    <label>Weight (kg) * <input name="Weight_kg" type="number" step="0.01" min="0.5" max="60" required></label>
+    <label>Height / Length (cm) * <input name="Height_cm" type="number" step="0.1" min="30" max="130" required></label>
+    <label>MUAC (mm) <input name="MUAC_mm" type="number" step="1" min="50" max="250"></label>
+    <label>Oedema
+      <select name="Oedema">
+        <option value="No">No</option>
+        <option value="Yes">Yes</option>
+      </select>
+    </label>
+    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+    <button type="submit" class="btn primary">Save &amp; Compute Z-scores</button>
+  </form>
+  <div id="measureResult" class="result" style="display:none;"></div>
+  <div class="chart-wrap">
+    <canvas id="growthChart"></canvas>
+  </div>
+</section>
+
+<!-- Feeding -->
+<section id="tab-feeding" class="panel">
+  <h2>Therapeutic Feeding Calculator</h2>
+  <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
+    Child
+    <select id="feedingChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
+      <option value="">— select child —</option>
+    </select>
+  </label>
+  <div id="feedingCalc" class="calc">
+    <p class="muted">Select a child to see dosing.</p>
+  </div>
+  <form id="feedingForm" class="form">
+    <label>Date * <input name="Date" type="date" required></label>
+    <label>RUTF sachets given <input name="RUTF_Sachets" type="number" step="1" min="0"></label>
+    <label>F-75 (mL) <input name="F75_ml" type="number" step="1" min="0"></label>
+    <label>F-100 (mL) <input name="F100_ml" type="number" step="1" min="0"></label>
+    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+    <button type="submit" class="btn primary">Log Feeding</button>
+  </form>
+</section>
+
+<!-- Defaulters -->
+<section id="tab-defaulters" class="panel">
+  <h2>Defaulter Tracing</h2>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+    <label style="font-size:0.9rem;">
+      Days since last visit:
+      <input id="defaulterDays" type="number" value="14" min="7" max="60"
+             style="padding:8px;border:1px solid var(--border);border-radius:8px;font:inherit;width:80px;">
+    </label>
+    <button id="loadDefaulters" class="btn">Refresh</button>
+  </div>
+  <div id="defaultersList" class="list"></div>
+</section>
+
+<!-- Supplies -->
+<section id="tab-supplies" class="panel">
+  <h2>RUTF Supply Status</h2>
+  <div id="suppliesList" class="list"></div>
+  <h3>Record Supply Update</h3>
+  <form id="supplyForm" class="form">
+    <label>Facility * <input name="Facility" required></label>
+    <label>Date * <input name="Date" type="date" required></label>
+    <label>RUTF stock (sachets) <input name="RUTF_Stock" type="number" step="1" min="0"></label>
+    <label>F-75 stock (mL) <input name="F75_Stock" type="number" step="1" min="0"></label>
+    <label>F-100 stock (mL) <input name="F100_Stock" type="number" step="1" min="0"></label>
+    <button type="submit" class="btn primary">Save Supply</button>
+  </form>
+</section>
+
+</main>
+
+<script>
+/* ============================================================================
+ * CONFIG — EDIT THESE TWO LINES AFTER DEPLOYING Code.gs
+ * ========================================================================== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwBs_czaujJfRTGcWn_JCQISzWoy690-KYYIpT49AnXrZnPLp4yIfIEtntsj0bL44cc/exec';
+const API_KEY = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCeaHa5OYUuR2iQ';
+
+/* ============================================================================
+ * WHO 2006 LMS reference tables (0–24 months WAZ/HAZ; 45–85 cm WHZ)
+ * ----------------------------------------------------------------------------
+ * ⚠  CLINICAL SAFETY NOTE
+ * These are a verified working subset of the official WHO 2006 Child Growth
+ * Standards. Before any clinical deployment:
+ *   1. Download the official WHO LMS CSVs from
+ *      who.int/tools/child-growth-standards/standards
+ *   2. Replace these tables to cover 0–60 months and 45–110 cm.
+ *   3. Re-run the validation suite (velocityAlert, classifyStatus) against
+ *      official reference children.
+ * The structure below matches the official [L, M, S] layout, so replacement
+ * is a data-only change — no code edits are required.
+ * ========================================================================== */
+const WHO_LMS = {
+  WAZ: {
+    M: {
+      0:[0.3487,3.3464,0.14602], 1:[0.2297,4.4709,0.13395],
+      2:[0.1970,5.5675,0.12385], 3:[0.1738,6.3762,0.11727],
+      4:[0.1553,7.0023,0.11316], 5:[0.1395,7.5105,0.11080],
+      6:[0.1257,7.9340,0.10958], 7:[0.1134,8.2970,0.10902],
+      8:[0.1021,8.6151,0.10882], 9:[0.0917,8.9014,0.10881],
+      10:[0.0820,9.1649,0.10891], 11:[0.0730,9.4122,0.10906],
+      12:[0.0644,9.6479,0.10925], 13:[0.0563,9.8749,0.10949],
+      14:[0.0487,10.0953,0.10976], 15:[0.0413,10.3108,0.11007],
+      16:[0.0343,10.5228,0.11041], 17:[0.0275,10.7319,0.11079],
+      18:[0.0210,10.9385,0.11119], 19:[0.0148,11.1430,0.11164],
+      20:[0.0087,11.3462,0.11211], 21:[0.0029,11.5486,0.11261],
+      22:[-0.0028,11.7504,0.11314], 23:[-0.0083,11.9514,0.11369],
+      24:[-0.0137,12.1515,0.11426]
+    },
+    F: {
+      0:[0.3809,3.2322,0.14171], 1:[0.1714,4.1873,0.13724],
+      2:[0.0962,5.1282,0.13000], 3:[0.0402,5.8458,0.12619],
+      4:[-0.0050,6.4237,0.12402], 5:[-0.0430,6.8985,0.12274],
+      6:[-0.0756,7.2970,0.12204], 7:[-0.1039,7.6422,0.12178],
+      8:[-0.1288,7.9487,0.12181], 9:[-0.1507,8.2254,0.12199],
+      10:[-0.1700,8.4800,0.12223], 11:[-0.1872,8.7192,0.12247],
+      12:[-0.2024,8.9481,0.12268], 13:[-0.2158,9.1699,0.12283],
+      14:[-0.2278,9.3870,0.12294], 15:[-0.2384,9.6008,0.12299],
+      16:[-0.2478,9.8124,0.12303], 17:[-0.2562,10.0226,0.12306],
+      18:[-0.2637,10.2315,0.12309], 19:[-0.2703,10.4393,0.12315],
+      20:[-0.2762,10.6464,0.12323], 21:[-0.2815,10.8534,0.12335],
+      22:[-0.2862,11.0608,0.12350], 23:[-0.2903,11.2688,0.12369],
+      24:[-0.2941,11.4775,0.12390]
+    }
+  },
+  HAZ: {
+    M: {
+      0:[1,49.8842,0.03795], 1:[1,54.7244,0.03557],
+      2:[1,58.4249,0.03424], 3:[1,61.4292,0.03328],
+      4:[1,63.8860,0.03257], 5:[1,65.9026,0.03204],
+      6:[1,67.6236,0.03165], 7:[1,69.1645,0.03139],
+      8:[1,70.5994,0.03124], 9:[1,71.9687,0.03117],
+      10:[1,73.2812,0.03118], 11:[1,74.5388,0.03125],
+      12:[1,75.7488,0.03137], 13:[1,76.9186,0.03154],
+      14:[1,78.0497,0.03174], 15:[1,79.1458,0.03197],
+      16:[1,80.2113,0.03222], 17:[1,81.2487,0.03250],
+      18:[1,82.2587,0.03279], 19:[1,83.2418,0.03310],
+      20:[1,84.1996,0.03342], 21:[1,85.1348,0.03376],
+      22:[1,86.0477,0.03410], 23:[1,86.9410,0.03445],
+      24:[1,87.8161,0.03479]
+    },
+    F: {
+      0:[1,49.1477,0.03790], 1:[1,53.6872,0.03640],
+      2:[1,57.0673,0.03568], 3:[1,59.8029,0.03520],
+      4:[1,62.0899,0.03486], 5:[1,64.0301,0.03463],
+      6:[1,65.7311,0.03448], 7:[1,67.2873,0.03441],
+      8:[1,68.7498,0.03440], 9:[1,70.1435,0.03444],
+      10:[1,71.4818,0.03452], 11:[1,72.7710,0.03464],
+      12:[1,74.0150,0.03479], 13:[1,75.2176,0.03496],
+      14:[1,76.3817,0.03514], 15:[1,77.5099,0.03534],
+      16:[1,78.6055,0.03555], 17:[1,79.6710,0.03576],
+      18:[1,80.7079,0.03598], 19:[1,81.7182,0.03620],
+      20:[1,82.7036,0.03643], 21:[1,83.6654,0.03666],
+      22:[1,84.6040,0.03688], 23:[1,85.5202,0.03711],
+      24:[1,86.4153,0.03734]
+    }
+  },
+  WHZ: {
+    M: {
+      45:[-0.3521,2.441,0.09182], 46:[-0.3521,2.607,0.09230],
+      47:[-0.3521,2.774,0.09288], 48:[-0.3521,2.942,0.09351],
+      49:[-0.3521,3.112,0.09415], 50:[-0.3521,3.284,0.09482],
+      51:[-0.3521,3.456,0.09548], 52:[-0.3521,3.630,0.09615],
+      53:[-0.3521,3.804,0.09680], 54:[-0.3521,3.979,0.09744],
+      55:[-0.3521,4.154,0.09806], 56:[-0.3521,4.329,0.09866],
+      57:[-0.3521,4.504,0.09924], 58:[-0.3521,4.679,0.09980],
+      59:[-0.3521,4.853,0.10034], 60:[-0.3521,5.027,0.10085],
+      61:[-0.3521,5.200,0.10134], 62:[-0.3521,5.372,0.10181],
+      63:[-0.3521,5.544,0.10226], 64:[-0.3521,5.715,0.10269],
+      65:[-0.3521,5.885,0.10311], 66:[-0.3521,6.055,0.10351],
+      67:[-0.3521,6.224,0.10389], 68:[-0.3521,6.393,0.10426],
+      69:[-0.3521,6.561,0.10462], 70:[-0.3521,6.729,0.10497],
+      71:[-0.3521,6.896,0.10530], 72:[-0.3521,7.063,0.10563],
+      73:[-0.3521,7.229,0.10595], 74:[-0.3521,7.395,0.10626],
+      75:[-0.3521,7.561,0.10657], 76:[-0.3521,7.726,0.10687],
+      77:[-0.3521,7.891,0.10716], 78:[-0.3521,8.055,0.10745],
+      79:[-0.3521,8.219,0.10773], 80:[-0.3521,8.383,0.10801],
+      81:[-0.3521,8.547,0.10829], 82:[-0.3521,8.710,0.10856],
+      83:[-0.3521,8.873,0.10883], 84:[-0.3521,9.036,0.10910],
+      85:[-0.3521,9.199,0.10936]
+    },
+    F: {
+      45:[-0.3833,2.4607,0.09029], 46:[-0.3833,2.6296,0.09086],
+      47:[-0.3833,2.7997,0.09151], 48:[-0.3833,2.9710,0.09220],
+      49:[-0.3833,3.1437,0.09291], 50:[-0.3833,3.3176,0.09363],
+      51:[-0.3833,3.4925,0.09434], 52:[-0.3833,3.6684,0.09505],
+      53:[-0.3833,3.8450,0.09575], 54:[-0.3833,4.0223,0.09644],
+      55:[-0.3833,4.2000,0.09712], 56:[-0.3833,4.3781,0.09779],
+      57:[-0.3833,4.5564,0.09845], 58:[-0.3833,4.7348,0.09910],
+      59:[-0.3833,4.9132,0.09974], 60:[-0.3833,5.0915,0.10037],
+      61:[-0.3833,5.2696,0.10099], 62:[-0.3833,5.4475,0.10160],
+      63:[-0.3833,5.6251,0.10220], 64:[-0.3833,5.8023,0.10279],
+      65:[-0.3833,5.9792,0.10337], 66:[-0.3833,6.1557,0.10394],
+      67:[-0.3833,6.3318,0.10450], 68:[-0.3833,6.5075,0.10505],
+      69:[-0.3833,6.6828,0.10559], 70:[-0.3833,6.8577,0.10612],
+      71:[-0.3833,7.0321,0.10664], 72:[-0.3833,7.2061,0.10715],
+      73:[-0.3833,7.3796,0.10765], 74:[-0.3833,7.5526,0.10814],
+      75:[-0.3833,7.7251,0.10862], 76:[-0.3833,7.8971,0.10909],
+      77:[-0.3833,8.0686,0.10955], 78:[-0.3833,8.2395,0.11000],
+      79:[-0.3833,8.4098,0.11044], 80:[-0.3833,8.5795,0.11087],
+      81:[-0.3833,8.7486,0.11129], 82:[-0.3833,8.9171,0.11170],
+      83:[-0.3833,9.0850,0.11210], 84:[-0.3833,9.2522,0.11249],
+      85:[-0.3833,9.4188,0.11287]
+    }
+  }
+};
+
+/* ---------- WHO Z-score engine ---------- */
+
+function lmsLookup(indicator, sex, key) {
+  const table = WHO_LMS[indicator] && WHO_LMS[indicator][sex];
+  if (!table) return null;
+  const keys = Object.keys(table).map(Number).sort((a, b) => a - b);
+  if (!keys.length) return null;
+  if (key <= keys[0]) return table[keys[0]];
+  if (key >= keys[keys.length - 1]) return table[keys[keys.length - 1]];
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (key >= keys[i] && key <= keys[i + 1]) {
+      const t = (key - keys[i]) / (keys[i + 1] - keys[i]);
+      const a = table[keys[i]], b = table[keys[i + 1]];
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t
+      ];
+    }
+  }
+  return null;
+}
+
+function calcZScore(value, L, M, S) {
+  if (value == null || isNaN(value) || value <= 0) return null;
+  if (Math.abs(L) < 1e-9) return Math.log(value / M) / S;
+  return (Math.pow(value / M, L) - 1) / (L * S);
+}
+
+function ageInMonths(dobIso, dateIso) {
+  const d1 = new Date(dobIso), d2 = new Date(dateIso);
+  if (isNaN(d1) || isNaN(d2) || d2 < d1) return null;
+  return (d2 - d1) / (1000 * 60 * 60 * 24 * 30.4375);
+}
+
+function computeAllIndices({ dob, sex, date, weight, height, oedema }) {
+  const out = { WAZ: null, WHZ: null, HAZ: null, ageMonths: null };
+  if (!dob || !sex || !date) return out;
+  const ageM = ageInMonths(dob, date);
+  out.ageMonths = ageM;
+
+  if (ageM != null && weight != null) {
+    const lms = lmsLookup('WAZ', sex, ageM);
+    if (lms) out.WAZ = calcZScore(weight, lms[0], lms[1], lms[2]);
+  }
+  if (ageM != null && height != null) {
+    const lms = lmsLookup('HAZ', sex, ageM);
+    if (lms) out.HAZ = calcZScore(height, lms[0], lms[1], lms[2]);
+  }
+  if (height != null && weight != null) {
+    const lms = lmsLookup('WHZ', sex, height);
+    if (lms) out.WHZ = calcZScore(weight, lms[0], lms[1], lms[2]);
+  }
+  if (String(oedema || '').toLowerCase() === 'yes') {
+    out.WHZ = Math.min(out.WHZ ?? -3, -3);
+  }
+  return out;
+}
+
+function classifyStatus({ WHZ, WAZ, MUAC, oedema }) {
+  const oe = String(oedema || '').toLowerCase() === 'yes';
+  if (oe || (WHZ != null && WHZ < -3) || (MUAC != null && MUAC < 115)) return 'SAM';
+  if ((WHZ != null && WHZ < -2) || (MUAC != null && MUAC < 125)) return 'MAM';
+  if (WAZ != null && WAZ < -2) return 'Underweight';
+  return 'Normal';
+}
+
+function velocityAlert(history) {
+  if (!history || history.length < 2) return null;
+  const last = history[history.length - 1];
+  for (let i = history.length - 2; i >= 0; i--) {
+    const prev = history[i];
+    const days = (new Date(last.Date) - new Date(prev.Date)) / 86400000;
+    if (days > 30) break;
+    const dWhz = (last.WHZ != null && prev.WHZ != null)
+      ? (Number(last.WHZ) - Number(prev.WHZ)) : null;
+    const dWaz = (last.WAZ != null && prev.WAZ != null)
+      ? (Number(last.WAZ) - Number(prev.WAZ)) : null;
+    const dMuac = (last.MUAC_mm != null && prev.MUAC_mm != null)
+      ? (Number(last.MUAC_mm) - Number(prev.MUAC_mm)) : null;
+    if ((dWhz != null && dWhz <= -0.5) ||
+        (dWaz != null && dWaz <= -0.5) ||
+        (dMuac != null && dMuac <= -4)) {
+      return {
+        flagged: true, days,
+        deltaWHZ: dWhz, deltaWAZ: dWaz, deltaMUAC: dMuac,
+        message: 'Growth faltering — review now'
+      };
+    }
+  }
+  return null;
+}
+
+/* ============================================================================
+ * APP STATE
+ * ========================================================================== */
+const CACHE_KEY = 'egt_cache_v1';
+const QUEUE_KEY = 'egt_queue_v1';
+
+let cache = loadCache();
+let queue = loadQueue();
+let currentChildId = null;
+let chartInstance = null;
+
+/* ============================================================================
+ * STORAGE
+ * ========================================================================== */
+function loadCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveCache() { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }
+
+function loadQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveQueue() {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  const el = document.getElementById('queueStatus');
+  if (el) el.textContent = queue.length + ' queued';
+}
+
+/* ============================================================================
+ * API CLIENT
+ * ========================================================================== */
+async function apiGet(action, params = {}) {
+  const qs = new URLSearchParams({ action, apiKey: API_KEY, ...params });
+  const res = await fetch(`${API_URL}?${qs}`);
+  return res.json();
+}
+async function apiPostBatch(records) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    // text/plain avoids the CORS preflight that Apps Script cannot handle
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'syncBatch', apiKey: API_KEY, records })
+  });
+  return res.json();
+}
+
+/* ============================================================================
+ * NETWORK / QUEUE
+ * ========================================================================== */
+function updateNetworkStatus() {
+  const el = document.getElementById('netStatus');
+  if (!el) return;
+  const online = navigator.onLine;
+  el.textContent = online ? '● online' : '● offline';
+  el.className = 'pill ' + (online ? 'ok' : 'warn');
+  if (online) syncQueue();
+}
+
+function enqueue(type, data) {
+  const localId = 'L-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  queue.push({ localId, type, data });
+  saveQueue();
+  if (navigator.onLine) syncQueue();
+}
+
+async function syncQueue() {
+  if (!queue.length || !navigator.onLine) return;
+  try {
+    const res = await apiPostBatch(queue);
+    if (res.results) {
+      const failedIds = res.results.filter(r => !r.ok).map(r => r.localId);
+      queue = queue.filter(q => failedIds.includes(q.localId));
+      saveQueue();
+      await refreshFromServer();
+    }
+  } catch (e) {
+    console.warn('Sync failed', e);
+  }
+}
+
+/* ============================================================================
+ * REFRESH FROM SERVER
+ * ========================================================================== */
+async function refreshFromServer() {
+  if (!navigator.onLine) return;
+  try {
+    const [children, dash] = await Promise.all([
+      apiGet('getChildren'),
+      apiGet('getDashboard')
+    ]);
+    if (children.children) cache.children = children.children;
+    if (dash && !dash.error) cache.dashboard = dash;
+    saveCache();
+    renderAll();
+    document.getElementById('lastRefresh').textContent = new Date().toLocaleString();
+  } catch (e) {
+    console.warn('Refresh failed', e);
+  }
+}
+
+/* ============================================================================
+ * RENDERING
+ * ========================================================================== */
+function renderAll() {
+  renderDashboard();
+  renderChildrenList();
+  renderChildSelects();
+}
+
+function renderDashboard() {
+  const d = cache.dashboard || {};
+  const el = document.getElementById('dashboardStats');
+  el.innerHTML = `
+    <div class="stat"><span>${d.activeChildren ?? '—'}</span>Active children</div>
+    <div class="stat"><span>${d.totalMeasurements ?? '—'}</span>Measurements</div>
+    <div class="stat"><span>${d.defaulterCount ?? '—'}</span>Defaulters (14d)</div>
+    <div class="stat warn"><span>${d.samEpisodes ?? '—'}</span>SAM episodes</div>
+    <div class="stat"><span>${d.mamEpisodes ?? '—'}</span>MAM episodes</div>
+  `;
+}
+
+function renderChildrenList() {
+  const q = (document.getElementById('childSearch').value || '').toLowerCase();
+  const list = (cache.children || []).filter(c =>
+    !q ||
+    String(c.Name || '').toLowerCase().includes(q) ||
+    String(c.Kebele || '').toLowerCase().includes(q)
+  );
+  const el = document.getElementById('childrenList');
+  if (!list.length) {
+    el.innerHTML = '<p class="muted">No children yet. Register one using the New Child tab.</p>';
+    return;
+  }
+  el.innerHTML = list.map(c => `
+    <div class="row">
+      <div>
+        <strong>${escapeHtml(c.Name)}</strong>
+        <div class="muted">
+          ${escapeHtml(c.Kebele || '—')} · ${escapeHtml(c.Village || '—')}
+          · ${c.Sex || '?'} · DOB ${escapeHtml(c.DOB || '—')}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" data-view-child="${escapeHtml(c.ChildID)}">View</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderChildSelects() {
+  const opts = '<option value="">— select child —</option>' +
+    (cache.children || []).map(c =>
+      `<option value="${escapeHtml(c.ChildID)}">${escapeHtml(c.Name)} (${escapeHtml(c.ChildID)})</option>`
+    ).join('');
+  ['measureChildSelect', 'feedingChildSelect'].forEach(id => {
+    const el = document.getElementById(id);
+    const prev = el.value;
+    el.innerHTML = opts;
+    if (prev) el.value = prev;
+  });
+}
+
+function showMeasureResult(indices, status, velocity) {
+  const el = document.getElementById('measureResult');
+  el.style.display = 'block';
+  const fmt = v => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(2);
+  const cls = status === 'SAM' ? 'warn'
+            : (status === 'MAM' || status === 'Underweight') ? 'caution'
+            : 'ok';
+  let velocityHtml = '';
+  if (velocity && velocity.flagged) {
+    velocityHtml = `
+      <div class="status-badge warn" style="margin-top:10px;">
+        ⚠ ${escapeHtml(velocity.message)}
+        (${velocity.days}d window: ΔWHZ=${fmt(velocity.deltaWHZ)}, ΔWAZ=${fmt(velocity.deltaWAZ)})
+      </div>`;
+  }
+  el.innerHTML = `
+    <div class="zscore-row">
+      <div>WHZ: <strong>${fmt(indices.WHZ)}</strong></div>
+      <div>WAZ: <strong>${fmt(indices.WAZ)}</strong></div>
+      <div>HAZ: <strong>${fmt(indices.HAZ)}</strong></div>
+      <div>Age: <strong>${indices.ageMonths != null ? indices.ageMonths.toFixed(1) + ' mo' : '—'}</strong></div>
+    </div>
+    <div class="status-badge ${cls}">${status}</div>
+    ${velocityHtml}
+  `;
+}
+
+/* ============================================================================
+ * GROWTH CHART
+ * ========================================================================== */
+async function renderGrowthChart(childId) {
+  const canvas = document.getElementById('growthChart');
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') return; // Chart.js still loading / offline
+
+  let measurements = (cache.measurements || []).filter(m => m.ChildID === childId);
+  if (!measurements.length && childId && navigator.onLine) {
+    try {
+      const res = await apiGet('getMeasurements', { childId });
+      measurements = res.measurements || [];
+      if (!cache.measurements) cache.measurements = [];
+      cache.measurements = cache.measurements.filter(m => m.ChildID !== childId)
+        .concat(measurements);
+      saveCache();
+    } catch (e) { /* ignore */ }
+  }
+  measurements.sort((a, b) => String(a.Date).localeCompare(String(b.Date)));
+
+  const labels = measurements.map(m => m.Date);
+  const waz = measurements.map(m =>
+    m.WAZ != null && m.WAZ !== '' ? Number(m.WAZ) : null);
+  const whz = measurements.map(m =>
+    m.WHZ != null && m.WHZ !== '' ? Number(m.WHZ) : null);
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'WAZ', data: waz, borderColor: '#2563eb',
+          backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.2 },
+        { label: 'WHZ', data: whz, borderColor: '#dc2626',
+          backgroundColor: 'rgba(220,38,38,0.08)', tension: 0.2 },
+        { label: 'SAM threshold (−3)', data: labels.map(() => -3),
+          borderColor: '#dc2626', borderDash: [6, 4], pointRadius: 0 },
+        { label: 'MAM threshold (−2)', data: labels.map(() => -2),
+          borderColor: '#f59e0b', borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { min: -5, max: 3, title: { display: true, text: 'Z-score' } }
+      }
+    }
+  });
+}
+
+/* ============================================================================
+ * FEEDING CALCULATOR
+ * ========================================================================== */
+function renderFeedingCalculator(childId) {
+  const el = document.getElementById('feedingCalc');
+  const child = (cache.children || []).find(c => c.ChildID === childId);
+  if (!child) {
+    el.innerHTML = '<p class="muted">Select a child to see dosing.</p>';
+    return;
+  }
+  const measurements = (cache.measurements || [])
+    .filter(m => m.ChildID === childId)
+    .sort((a, b) => String(a.Date).localeCompare(String(b.Date)));
+  const last = measurements[measurements.length - 1];
+  if (!last || !last.Weight_kg || isNaN(Number(last.Weight_kg))) {
+    el.innerHTML = '<p class="muted">No weight recorded yet. Record a measurement first.</p>';
+    return;
+  }
+  const w = Number(last.Weight_kg);
+  const rutf = Math.max(1, Math.round(w * 0.4));   // ~200 kcal/kg/day ÷ 500 kcal/sachet
+  const f75PerDay = Math.round(130 * w);           // 130 mL/kg/day
+  const f75PerFeed = Math.round(f75PerDay / 8);    // 8 feeds
+  const f100PerDay = Math.round(150 * w);          // 150 mL/kg/day
+  const f100PerFeed = Math.round(f100PerDay / 6);  // 6 feeds
+
+  el.innerHTML = `
+    <p><strong>Child:</strong> ${escapeHtml(child.Name)}
+       · <strong>Weight:</strong> ${w} kg (${escapeHtml(last.Date)})</p>
+    <table class="calc-table">
+      <thead><tr><th>Product</th><th>Formula</th><th>Daily</th><th>Per feed</th></tr></thead>
+      <tbody>
+        <tr><td>RUTF</td><td>200 kcal/kg/day ÷ 500 kcal/sachet</td>
+            <td><strong>${rutf}</strong> sachets</td><td>—</td></tr>
+        <tr><td>F-75</td><td>130 mL/kg/day ÷ 8 feeds</td>
+            <td>${f75PerDay} mL</td><td><strong>${f75PerFeed} mL</strong></td></tr>
+        <tr><td>F-100</td><td>150 mL/kg/day ÷ 6 feeds</td>
+            <td>${f100PerDay} mL</td><td><strong>${f100PerFeed} mL</strong></td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:10px;">
+      Verify against national OTP / stabilisation-centre protocol before administering.
+    </p>
+  `;
+}
+
+/* ============================================================================
+ * DEFAULTERS
+ * ========================================================================== */
+async function loadDefaulters() {
+  const days = document.getElementById('defaulterDays').value || 14;
+  const el = document.getElementById('defaultersList');
+  el.innerHTML = '<p class="muted">Loading…</p>';
+  if (!navigator.onLine) {
+    el.innerHTML = '<p class="muted">Offline — defaulter list requires a connection.</p>';
+    return;
+  }
+  try {
+    const res = await apiGet('getDefaulters', { days });
+    if (res.error) throw new Error(res.error);
+    if (!res.count) {
+      el.innerHTML = '<p class="muted">No defaulters in this window. 🎉</p>';
+      return;
+    }
+    el.innerHTML = Object.entries(res.grouped).map(([group, rows]) => `
+      <div class="group">
+        <h3>${escapeHtml(group)} <span class="muted">(${rows.length})</span></h3>
+        ${rows.map(r => `
+          <div class="row">
+            <div>
+              <strong>${escapeHtml(r.Name)}</strong>
+              <div class="muted">
+                Last visit: ${escapeHtml(r.LastMeasurement || 'never')}
+                · Overdue: ${r.DaysOverdue ?? '—'} days
+              </div>
+            </div>
+            <div>
+              ${r.CaregiverPhone
+                ? `<a class="btn" href="tel:${escapeHtml(r.CaregiverPhone)}">Call</a>`
+                : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = `<p class="msg warn">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+/* ============================================================================
+ * SUPPLIES
+ * ========================================================================== */
+async function loadSupplies() {
+  const el = document.getElementById('suppliesList');
+  el.innerHTML = '<p class="muted">Loading…</p>';
+  if (!navigator.onLine) {
+    el.innerHTML = '<p class="muted">Offline — supply status requires a connection.</p>';
+    return;
+  }
+  try {
+    const res = await apiGet('getSupplyStatus');
+    if (!Array.isArray(res)) throw new Error('Unexpected response');
+    if (!res.length) {
+      el.innerHTML = '<p class="muted">No supply records yet.</p>';
+      return;
+    }
+    el.innerHTML = res.map(s => `
+      <div class="row">
+        <div>
+          <strong>${escapeHtml(s.Facility)}</strong>
+          <div class="muted">
+            Stock: ${s.RUTF_Stock} sachets · Weekly need: ${s.RUTF_WeeklyNeed}
+            · Weeks remaining: ${s.WeeksRemaining ?? '—'}
+            · Enrolled: ${s.EnrolledChildren}
+          </div>
+        </div>
+        <div class="status-badge ${
+          s.Alert === 'RED' ? 'warn'
+          : s.Alert === 'AMBER' ? 'caution'
+          : 'ok'
+        }">${s.Alert}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = `<p class="msg warn">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+/* ============================================================================
+ * UTILITIES
+ * ========================================================================== */
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function viewChild(id) {
+  currentChildId = id;
+  document.querySelector('.tab[data-tab="measure"]').click();
+  document.getElementById('measureChildSelect').value = id;
+  renderGrowthChart(id);
+  renderFeedingCalculator(id);
+}
+
+/* ============================================================================
+ * EVENT BINDING
+ * ========================================================================== */
+function bindTabs() {
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+
+      if (btn.dataset.tab === 'measure') {
+        renderGrowthChart(document.getElementById('measureChildSelect').value);
+        renderFeedingCalculator(document.getElementById('measureChildSelect').value);
+      }
+      if (btn.dataset.tab === 'defaulters') loadDefaulters();
+      if (btn.dataset.tab === 'supplies') loadSupplies();
+    });
+  });
+
+  document.getElementById('syncBtn').addEventListener('click', syncQueue);
+  document.getElementById('refreshBtn').addEventListener('click', refreshFromServer);
+  document.getElementById('loadDefaulters').addEventListener('click', loadDefaulters);
+
+  // Delegated handler for "View" buttons (survives list re-renders)
+  document.getElementById('childrenList').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-view-child]');
+    if (btn) viewChild(btn.getAttribute('data-view-child'));
+  });
+}
+
+function bindForms() {
+  document.getElementById('newChildForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    enqueue('child', data);
+    document.getElementById('newChildMsg').textContent =
+      '✓ Saved locally. Will sync automatically when online.';
+    e.target.reset();
+  });
+
+  document.getElementById('measurementForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const childId = document.getElementById('measureChildSelect').value;
+    if (!childId) { alert('Select a child first.'); return; }
+    const child = (cache.children || []).find(c => c.ChildID === childId);
+    if (!child) { alert('Child not found in cache. Refresh first.'); return; }
+
+    const fd = Object.fromEntries(new FormData(e.target).entries());
+    const weight = parseFloat(fd.Weight_kg);
+    const height = parseFloat(fd.Height_cm);
+
+    const indices = computeAllIndices({
+      dob: child.DOB, sex: child.Sex, date: fd.Date,
+      weight, height, oedema: fd.Oedema
+    });
+    const status = classifyStatus({
+      WHZ: indices.WHZ, WAZ: indices.WAZ,
+      MUAC: fd.MUAC_mm ? parseFloat(fd.MUAC_mm) : null,
+      oedema: fd.Oedema
+    });
+
+    const payload = {
+      ChildID: childId,
+      Date: fd.Date,
+      Weight_kg: weight,
+      Height_cm: height,
+      MUAC_mm: fd.MUAC_mm || '',
+      Oedema: fd.Oedema,
+      WHZ: indices.WHZ,
+      WAZ: indices.WAZ,
+      HAZ: indices.HAZ,
+      Notes: fd.Notes || ''
+    };
+
+    // Optimistic local update so the chart reflects the new point immediately
+    if (!cache.measurements) cache.measurements = [];
+    cache.measurements.push(payload);
+    saveCache();
+
+    enqueue('measurement', payload);
+
+    const history = cache.measurements
+      .filter(m => m.ChildID === childId)
+      .sort((a, b) => String(a.Date).localeCompare(String(b.Date)));
+    const velocity = velocityAlert(history);
+
+    showMeasureResult(indices, status, velocity);
+    renderGrowthChart(childId);
+    e.target.reset();
+  });
+
+  document.getElementById('feedingForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const childId = document.getElementById('feedingChildSelect').value;
+    if (!childId) { alert('Select a child first.'); return; }
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    data.ChildID = childId;
+    enqueue('feeding', data);
+    alert('✓ Feeding log saved locally.');
+    e.target.reset();
+  });
+
+  document.getElementById('supplyForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    enqueue('supply', data);
+    alert('✓ Supply record saved locally.');
+    e.target.reset();
+    loadSupplies();
+  });
+
+  document.getElementById('measureChildSelect').addEventListener('change', e => {
+    currentChildId = e.target.value;
+    renderGrowthChart(currentChildId);
+    renderFeedingCalculator(currentChildId);
+  });
+
+  document.getElementById('feedingChildSelect').addEventListener('change', e => {
+    renderFeedingCalculator(e.target.value);
+  });
+
+  document.getElementById('childSearch').addEventListener('input', renderChildrenList);
+}
+
+/* ============================================================================
+ * BOOT
+ * ========================================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  bindTabs();
+  bindForms();
+  updateNetworkStatus();
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+
+  saveQueue();         // reflect restored queue in the header
+  renderAll();         // paint cached data immediately
+  refreshFromServer(); // then hydrate from the server if online
+});
+</script>
+
+</body>
+</html>
