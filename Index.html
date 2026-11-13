@@ -5,13 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ethio-GrowthTrack</title>
 
-<!-- Chart.js is loaded from CDN. App works offline for data capture without it. -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
-/* ============================================================================
- * STYLES
- * ========================================================================== */
 :root {
   --bg: #f8fafc; --card: #ffffff; --ink: #0f172a; --muted: #64748b;
   --primary: #2563eb; --ok: #16a34a; --caution: #f59e0b; --warn: #dc2626;
@@ -37,6 +35,18 @@ header h1 { margin: 0; font-size: 1.3rem; }
 }
 .pill.ok { background: rgba(22,163,74,0.35); }
 .pill.warn { background: rgba(220,38,38,0.35); }
+
+#authBar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 20px; background: #f1f5f9;
+  border-bottom: 1px solid var(--border);
+  gap: 12px; flex-wrap: wrap;
+}
+#authBar .user {
+  font-size: 0.9rem; color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
+}
+#authBar .actions { display: flex; gap: 8px; align-items: center; }
 
 nav.tabs {
   display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 16px;
@@ -137,6 +147,22 @@ h3 { margin-top: 24px; }
 }
 .calc-table th { background: #f1f5f9; }
 
+.gate {
+  display: none;
+  max-width: 520px; margin: 80px auto;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+}
+.gate h2 { margin-top: 0; }
+.gate .btn { margin-top: 20px; font-size: 1rem; padding: 10px 22px; }
+.gate .icon { font-size: 3rem; margin-bottom: 8px; }
+.gate code {
+  background: #f1f5f9; padding: 2px 6px;
+  border-radius: 4px; font-size: 0.85em;
+}
+
 @media (max-width: 600px) {
   .row { flex-direction: column; align-items: flex-start; }
   header { flex-direction: column; align-items: flex-start; }
@@ -160,164 +186,193 @@ h3 { margin-top: 24px; }
   </div>
 </header>
 
-<nav class="tabs">
-  <button class="tab active" data-tab="dashboard">Dashboard</button>
-  <button class="tab" data-tab="children">Children</button>
-  <button class="tab" data-tab="newchild">New Child</button>
-  <button class="tab" data-tab="measure">Measurement</button>
-  <button class="tab" data-tab="feeding">Feeding</button>
-  <button class="tab" data-tab="defaulters">Defaulters</button>
-  <button class="tab" data-tab="supplies">Supplies</button>
-</nav>
-
-<main>
-
-<!-- Dashboard -->
-<section id="tab-dashboard" class="panel active">
-  <h2>Dashboard</h2>
-  <div id="dashboardStats" class="stats">
-    <div class="stat"><span>—</span>Active children</div>
-    <div class="stat"><span>—</span>Measurements</div>
-    <div class="stat"><span>—</span>Defaulters (14d)</div>
-    <div class="stat"><span>—</span>SAM episodes</div>
-    <div class="stat"><span>—</span>MAM episodes</div>
+<div id="authBar">
+  <div class="user" id="authUser"><span>Checking sign-in…</span></div>
+  <div class="actions">
+    <button id="signInBtn" class="btn primary" style="display:none;">Sign in with Google</button>
+    <button id="signOutBtn" class="btn" style="display:none;">Sign out</button>
   </div>
-  <p class="muted">Last refreshed: <span id="lastRefresh">—</span></p>
-</section>
+</div>
 
-<!-- Children -->
-<section id="tab-children" class="panel">
-  <h2>Children</h2>
-  <input id="childSearch" type="search" placeholder="Search by name or kebele…"
-         style="width:100%;max-width:420px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font:inherit;">
-  <div id="childrenList" class="list"></div>
-</section>
+<!-- Not signed in -->
+<div id="signInGate" class="gate">
+  <div class="icon">🔐</div>
+  <h2>Please sign in</h2>
+  <p class="muted">
+    Ethio-GrowthTrack contains clinical data. Sign in with your Google account
+    to access the children register, growth charts, and therapeutic-feeding tools.
+  </p>
+  <button id="signInGateBtn" class="btn primary">Sign in with Google</button>
+</div>
 
-<!-- New Child -->
-<section id="tab-newchild" class="panel">
-  <h2>Register New Child</h2>
-  <form id="newChildForm" class="form">
-    <label>Name * <input name="Name" required></label>
-    <label>Date of Birth * <input name="DOB" type="date" required></label>
-    <label>Sex *
-      <select name="Sex" required>
-        <option value="">—</option>
-        <option value="M">Male</option>
-        <option value="F">Female</option>
-      </select>
-    </label>
-    <label>Kebele <input name="Kebele"></label>
-    <label>Village / Gote <input name="Village"></label>
-    <label>Caregiver Name <input name="CaregiverName"></label>
-    <label>Caregiver Phone <input name="CaregiverPhone" type="tel"></label>
-    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
-    <button type="submit" class="btn primary">Save Child</button>
-    <p id="newChildMsg" class="msg"></p>
-  </form>
-</section>
+<!-- Signed in but not authorized -->
+<div id="notAuthorizedGate" class="gate">
+  <div class="icon">🔒</div>
+  <h2>Access not authorized</h2>
+  <p class="muted">
+    Your Google account <strong id="notAuthEmail" style="color:var(--ink);">—</strong>
+    is not on the authorized user list for this application.
+  </p>
+  <p class="muted" style="font-size:0.85rem;">
+    Ask the study administrator to add your email to the
+    <code>ALLOWED_EMAILS</code> list (in <code>Code.gs</code>) or to the
+    <code>AllowedUsers</code> sheet in the project spreadsheet. After they do,
+    click <strong>Retry</strong>.
+  </p>
+  <button id="retryAuthBtn" class="btn primary">Retry</button>
+  <button id="signOutNotAuthBtn" class="btn">Sign out</button>
+</div>
 
-<!-- Measurement -->
-<section id="tab-measure" class="panel">
-  <h2>Record Measurement</h2>
-  <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
-    Child
-    <select id="measureChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
-      <option value="">— select child —</option>
-    </select>
-  </label>
-  <form id="measurementForm" class="form">
-    <label>Date * <input name="Date" type="date" required></label>
-    <label>Weight (kg) * <input name="Weight_kg" type="number" step="0.01" min="0.5" max="60" required></label>
-    <label>Height / Length (cm) * <input name="Height_cm" type="number" step="0.1" min="30" max="130" required></label>
-    <label>MUAC (mm) <input name="MUAC_mm" type="number" step="1" min="50" max="250"></label>
-    <label>Oedema
-      <select name="Oedema">
-        <option value="No">No</option>
-        <option value="Yes">Yes</option>
-      </select>
-    </label>
-    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
-    <button type="submit" class="btn primary">Save &amp; Compute Z-scores</button>
-  </form>
-  <div id="measureResult" class="result" style="display:none;"></div>
-  <div class="chart-wrap">
-    <canvas id="growthChart"></canvas>
-  </div>
-</section>
+<!-- Main app -->
+<div id="appRoot" style="display:none;">
+  <nav class="tabs">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="children">Children</button>
+    <button class="tab" data-tab="newchild">New Child</button>
+    <button class="tab" data-tab="measure">Measurement</button>
+    <button class="tab" data-tab="feeding">Feeding</button>
+    <button class="tab" data-tab="defaulters">Defaulters</button>
+    <button class="tab" data-tab="supplies">Supplies</button>
+  </nav>
 
-<!-- Feeding -->
-<section id="tab-feeding" class="panel">
-  <h2>Therapeutic Feeding Calculator</h2>
-  <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
-    Child
-    <select id="feedingChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
-      <option value="">— select child —</option>
-    </select>
-  </label>
-  <div id="feedingCalc" class="calc">
-    <p class="muted">Select a child to see dosing.</p>
-  </div>
-  <form id="feedingForm" class="form">
-    <label>Date * <input name="Date" type="date" required></label>
-    <label>RUTF sachets given <input name="RUTF_Sachets" type="number" step="1" min="0"></label>
-    <label>F-75 (mL) <input name="F75_ml" type="number" step="1" min="0"></label>
-    <label>F-100 (mL) <input name="F100_ml" type="number" step="1" min="0"></label>
-    <label>Notes <textarea name="Notes" rows="2"></textarea></label>
-    <button type="submit" class="btn primary">Log Feeding</button>
-  </form>
-</section>
+  <main>
+    <section id="tab-dashboard" class="panel active">
+      <h2>Dashboard</h2>
+      <div id="dashboardStats" class="stats">
+        <div class="stat"><span>—</span>Active children</div>
+        <div class="stat"><span>—</span>Measurements</div>
+        <div class="stat"><span>—</span>Defaulters (14d)</div>
+        <div class="stat"><span>—</span>SAM episodes</div>
+        <div class="stat"><span>—</span>MAM episodes</div>
+      </div>
+      <p class="muted">Last refreshed: <span id="lastRefresh">—</span></p>
+    </section>
 
-<!-- Defaulters -->
-<section id="tab-defaulters" class="panel">
-  <h2>Defaulter Tracing</h2>
-  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-    <label style="font-size:0.9rem;">
-      Days since last visit:
-      <input id="defaulterDays" type="number" value="14" min="7" max="60"
-             style="padding:8px;border:1px solid var(--border);border-radius:8px;font:inherit;width:80px;">
-    </label>
-    <button id="loadDefaulters" class="btn">Refresh</button>
-  </div>
-  <div id="defaultersList" class="list"></div>
-</section>
+    <section id="tab-children" class="panel">
+      <h2>Children</h2>
+      <input id="childSearch" type="search" placeholder="Search by name or kebele…"
+             style="width:100%;max-width:420px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font:inherit;">
+      <div id="childrenList" class="list"></div>
+    </section>
 
-<!-- Supplies -->
-<section id="tab-supplies" class="panel">
-  <h2>RUTF Supply Status</h2>
-  <div id="suppliesList" class="list"></div>
-  <h3>Record Supply Update</h3>
-  <form id="supplyForm" class="form">
-    <label>Facility * <input name="Facility" required></label>
-    <label>Date * <input name="Date" type="date" required></label>
-    <label>RUTF stock (sachets) <input name="RUTF_Stock" type="number" step="1" min="0"></label>
-    <label>F-75 stock (mL) <input name="F75_Stock" type="number" step="1" min="0"></label>
-    <label>F-100 stock (mL) <input name="F100_Stock" type="number" step="1" min="0"></label>
-    <button type="submit" class="btn primary">Save Supply</button>
-  </form>
-</section>
+    <section id="tab-newchild" class="panel">
+      <h2>Register New Child</h2>
+      <form id="newChildForm" class="form">
+        <label>Name * <input name="Name" required></label>
+        <label>Date of Birth * <input name="DOB" type="date" required></label>
+        <label>Sex *
+          <select name="Sex" required>
+            <option value="">—</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+        </label>
+        <label>Kebele <input name="Kebele"></label>
+        <label>Village / Gote <input name="Village"></label>
+        <label>Caregiver Name <input name="CaregiverName"></label>
+        <label>Caregiver Phone <input name="CaregiverPhone" type="tel"></label>
+        <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+        <button type="submit" class="btn primary">Save Child</button>
+        <p id="newChildMsg" class="msg"></p>
+      </form>
+    </section>
 
-</main>
+    <section id="tab-measure" class="panel">
+      <h2>Record Measurement</h2>
+      <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
+        Child
+        <select id="measureChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
+          <option value="">— select child —</option>
+        </select>
+      </label>
+      <form id="measurementForm" class="form">
+        <label>Date * <input name="Date" type="date" required></label>
+        <label>Weight (kg) * <input name="Weight_kg" type="number" step="0.01" min="0.5" max="60" required></label>
+        <label>Height / Length (cm) * <input name="Height_cm" type="number" step="0.1" min="30" max="130" required></label>
+        <label>MUAC (mm) <input name="MUAC_mm" type="number" step="1" min="50" max="250"></label>
+        <label>Oedema
+          <select name="Oedema">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </label>
+        <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+        <button type="submit" class="btn primary">Save &amp; Compute Z-scores</button>
+      </form>
+      <div id="measureResult" class="result" style="display:none;"></div>
+      <div class="chart-wrap"><canvas id="growthChart"></canvas></div>
+    </section>
+
+    <section id="tab-feeding" class="panel">
+      <h2>Therapeutic Feeding Calculator</h2>
+      <label style="display:block;margin-bottom:12px;font-size:0.9rem;">
+        Child
+        <select id="feedingChildSelect" style="display:block;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;max-width:420px;width:100%;">
+          <option value="">— select child —</option>
+        </select>
+      </label>
+      <div id="feedingCalc" class="calc">
+        <p class="muted">Select a child to see dosing.</p>
+      </div>
+      <form id="feedingForm" class="form">
+        <label>Date * <input name="Date" type="date" required></label>
+        <label>RUTF sachets given <input name="RUTF_Sachets" type="number" step="1" min="0"></label>
+        <label>F-75 (mL) <input name="F75_ml" type="number" step="1" min="0"></label>
+        <label>F-100 (mL) <input name="F100_ml" type="number" step="1" min="0"></label>
+        <label>Notes <textarea name="Notes" rows="2"></textarea></label>
+        <button type="submit" class="btn primary">Log Feeding</button>
+      </form>
+    </section>
+
+    <section id="tab-defaulters" class="panel">
+      <h2>Defaulter Tracing</h2>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <label style="font-size:0.9rem;">
+          Days since last visit:
+          <input id="defaulterDays" type="number" value="14" min="7" max="60"
+                 style="padding:8px;border:1px solid var(--border);border-radius:8px;font:inherit;width:80px;">
+        </label>
+        <button id="loadDefaulters" class="btn">Refresh</button>
+      </div>
+      <div id="defaultersList" class="list"></div>
+    </section>
+
+    <section id="tab-supplies" class="panel">
+      <h2>RUTF Supply Status</h2>
+      <div id="suppliesList" class="list"></div>
+      <h3>Record Supply Update</h3>
+      <form id="supplyForm" class="form">
+        <label>Facility * <input name="Facility" required></label>
+        <label>Date * <input name="Date" type="date" required></label>
+        <label>RUTF stock (sachets) <input name="RUTF_Stock" type="number" step="1" min="0"></label>
+        <label>F-75 stock (mL) <input name="F75_Stock" type="number" step="1" min="0"></label>
+        <label>F-100 stock (mL) <input name="F100_Stock" type="number" step="1" min="0"></label>
+        <button type="submit" class="btn primary">Save Supply</button>
+      </form>
+    </section>
+  </main>
+</div>
 
 <script>
 /* ============================================================================
- * CONFIG — EDIT THESE TWO LINES AFTER DEPLOYING Code.gs
+ * CONFIG — paste your Apps Script /exec URL here
  * ========================================================================== */
 const API_URL = 'https://script.google.com/macros/s/AKfycbwBs_czaujJfRTGcWn_JCQISzWoy690-KYYIpT49AnXrZnPLp4yIfIEtntsj0bL44cc/exec';
-const API_KEY = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCeaHa5OYUuR2iQ';
+
+/* Firebase project: growth-tracker-9c3ff */
+const firebaseConfig = {
+  apiKey: "AIzaSyD-ShYbzGRkqsFE2VAmxwH0tOVu84JLnRY",
+  authDomain: "growth-tracker-9c3ff.firebaseapp.com",
+  projectId: "growth-tracker-9c3ff",
+  storageBucket: "growth-tracker-9c3ff.firebasestorage.app",
+  messagingSenderId: "86346761218",
+  appId: "1:86346761218:web:b284be511f53592082131b",
+  measurementId: "G-X121YTYFWV"
+};
 
 /* ============================================================================
  * WHO 2006 LMS reference tables (0–24 months WAZ/HAZ; 45–85 cm WHZ)
- * ----------------------------------------------------------------------------
- * ⚠  CLINICAL SAFETY NOTE
- * These are a verified working subset of the official WHO 2006 Child Growth
- * Standards. Before any clinical deployment:
- *   1. Download the official WHO LMS CSVs from
- *      who.int/tools/child-growth-standards/standards
- *   2. Replace these tables to cover 0–60 months and 45–110 cm.
- *   3. Re-run the validation suite (velocityAlert, classifyStatus) against
- *      official reference children.
- * The structure below matches the official [L, M, S] layout, so replacement
- * is a data-only change — no code edits are required.
+ * ⚠ Replace with full official WHO tables before clinical use.
  * ========================================================================== */
 const WHO_LMS = {
   WAZ: {
@@ -434,8 +489,6 @@ const WHO_LMS = {
   }
 };
 
-/* ---------- WHO Z-score engine ---------- */
-
 function lmsLookup(indicator, sex, key) {
   const table = WHO_LMS[indicator] && WHO_LMS[indicator][sex];
   if (!table) return null;
@@ -474,7 +527,6 @@ function computeAllIndices({ dob, sex, date, weight, height, oedema }) {
   if (!dob || !sex || !date) return out;
   const ageM = ageInMonths(dob, date);
   out.ageMonths = ageM;
-
   if (ageM != null && weight != null) {
     const lms = lmsLookup('WAZ', sex, ageM);
     if (lms) out.WAZ = calcZScore(weight, lms[0], lms[1], lms[2]);
@@ -532,11 +584,17 @@ function velocityAlert(history) {
  * ========================================================================== */
 const CACHE_KEY = 'egt_cache_v1';
 const QUEUE_KEY = 'egt_queue_v1';
+const AUTH_UID_KEY = 'egt_authorized_uid';
 
 let cache = loadCache();
 let queue = loadQueue();
 let currentChildId = null;
 let chartInstance = null;
+
+let firebaseAuth = null;
+let currentUser = null;
+let currentIdToken = null;
+let hadUser = false;
 
 /* ============================================================================
  * STORAGE
@@ -558,22 +616,36 @@ function saveQueue() {
 }
 
 /* ============================================================================
- * API CLIENT
+ * AUTHENTICATED API CLIENT
  * ========================================================================== */
-async function apiGet(action, params = {}) {
-  const qs = new URLSearchParams({ action, apiKey: API_KEY, ...params });
-  const res = await fetch(`${API_URL}?${qs}`);
-  return res.json();
-}
-async function apiPostBatch(records) {
-  const res = await fetch(API_URL, {
+async function apiCall(action, data = {}) {
+  if (!currentUser) throw new Error('Not signed in');
+  if (!currentIdToken) currentIdToken = await currentUser.getIdToken();
+
+  const doFetch = (token) => fetch(API_URL, {
     method: 'POST',
-    // text/plain avoids the CORS preflight that Apps Script cannot handle
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'syncBatch', apiKey: API_KEY, records })
+    body: JSON.stringify({ action, idToken: token, ...data })
   });
-  return res.json();
+
+  let res = await doFetch(currentIdToken);
+  let json = await res.json();
+
+  // Refresh token once if it expired mid-session.
+  // Do NOT retry on NOT_AUTHORIZED — retrying won't change the answer.
+  if (json && json.code === 'TOKEN_INVALID') {
+    try {
+      currentIdToken = await currentUser.getIdToken(true);
+      res = await doFetch(currentIdToken);
+      json = await res.json();
+    } catch (e) { /* fall through and return original error */ }
+  }
+
+  return json;
 }
+
+async function apiGet(action, params = {}) { return apiCall(action, params); }
+async function apiPostBatch(records) { return apiCall('syncBatch', { records }); }
 
 /* ============================================================================
  * NETWORK / QUEUE
@@ -584,23 +656,40 @@ function updateNetworkStatus() {
   const online = navigator.onLine;
   el.textContent = online ? '● online' : '● offline';
   el.className = 'pill ' + (online ? 'ok' : 'warn');
-  if (online) syncQueue();
+  if (online && currentUser) syncQueue();
 }
 
 function enqueue(type, data) {
+  if (!currentUser) { alert('Please sign in first.'); return; }
   const localId = 'L-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
-  queue.push({ localId, type, data });
+  queue.push({
+    localId, type, data,
+    ownerUid: currentUser.uid,
+    ownerEmail: currentUser.email || ''
+  });
   saveQueue();
   if (navigator.onLine) syncQueue();
 }
 
 async function syncQueue() {
-  if (!queue.length || !navigator.onLine) return;
+  if (!currentUser || !navigator.onLine || !queue.length) return;
+  const myRecords = queue.filter(q =>
+    !q.ownerUid || q.ownerUid === currentUser.uid
+  );
+  if (!myRecords.length) return;
+  const payload = myRecords.map(r => ({
+    localId: r.localId, type: r.type, data: r.data
+  }));
   try {
-    const res = await apiPostBatch(queue);
+    const res = await apiPostBatch(payload);
     if (res.results) {
-      const failedIds = res.results.filter(r => !r.ok).map(r => r.localId);
-      queue = queue.filter(q => failedIds.includes(q.localId));
+      const failedIds = new Set(
+        res.results.filter(r => !r.ok).map(r => r.localId)
+      );
+      queue = queue.filter(q => {
+        if (q.ownerUid && q.ownerUid !== currentUser.uid) return true;
+        return failedIds.has(q.localId);
+      });
       saveQueue();
       await refreshFromServer();
     }
@@ -613,17 +702,18 @@ async function syncQueue() {
  * REFRESH FROM SERVER
  * ========================================================================== */
 async function refreshFromServer() {
-  if (!navigator.onLine) return;
+  if (!currentUser || !navigator.onLine) return;
   try {
     const [children, dash] = await Promise.all([
       apiGet('getChildren'),
       apiGet('getDashboard')
     ]);
-    if (children.children) cache.children = children.children;
+    if (children && children.children) cache.children = children.children;
     if (dash && !dash.error) cache.dashboard = dash;
     saveCache();
     renderAll();
-    document.getElementById('lastRefresh').textContent = new Date().toLocaleString();
+    const el = document.getElementById('lastRefresh');
+    if (el) el.textContent = new Date().toLocaleString();
   } catch (e) {
     console.warn('Refresh failed', e);
   }
@@ -641,6 +731,7 @@ function renderAll() {
 function renderDashboard() {
   const d = cache.dashboard || {};
   const el = document.getElementById('dashboardStats');
+  if (!el) return;
   el.innerHTML = `
     <div class="stat"><span>${d.activeChildren ?? '—'}</span>Active children</div>
     <div class="stat"><span>${d.totalMeasurements ?? '—'}</span>Measurements</div>
@@ -651,13 +742,15 @@ function renderDashboard() {
 }
 
 function renderChildrenList() {
-  const q = (document.getElementById('childSearch').value || '').toLowerCase();
+  const searchEl = document.getElementById('childSearch');
+  const q = (searchEl ? searchEl.value : '').toLowerCase();
   const list = (cache.children || []).filter(c =>
     !q ||
     String(c.Name || '').toLowerCase().includes(q) ||
     String(c.Kebele || '').toLowerCase().includes(q)
   );
   const el = document.getElementById('childrenList');
+  if (!el) return;
   if (!list.length) {
     el.innerHTML = '<p class="muted">No children yet. Register one using the New Child tab.</p>';
     return;
@@ -685,6 +778,7 @@ function renderChildSelects() {
     ).join('');
   ['measureChildSelect', 'feedingChildSelect'].forEach(id => {
     const el = document.getElementById(id);
+    if (!el) return;
     const prev = el.value;
     el.innerHTML = opts;
     if (prev) el.value = prev;
@@ -693,6 +787,7 @@ function renderChildSelects() {
 
 function showMeasureResult(indices, status, velocity) {
   const el = document.getElementById('measureResult');
+  if (!el) return;
   el.style.display = 'block';
   const fmt = v => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(2);
   const cls = status === 'SAM' ? 'warn'
@@ -724,15 +819,16 @@ function showMeasureResult(indices, status, velocity) {
 async function renderGrowthChart(childId) {
   const canvas = document.getElementById('growthChart');
   if (!canvas) return;
-  if (typeof Chart === 'undefined') return; // Chart.js still loading / offline
+  if (typeof Chart === 'undefined') return;
 
   let measurements = (cache.measurements || []).filter(m => m.ChildID === childId);
-  if (!measurements.length && childId && navigator.onLine) {
+  if (!measurements.length && childId && currentUser && navigator.onLine) {
     try {
       const res = await apiGet('getMeasurements', { childId });
-      measurements = res.measurements || [];
+      measurements = (res && res.measurements) || [];
       if (!cache.measurements) cache.measurements = [];
-      cache.measurements = cache.measurements.filter(m => m.ChildID !== childId)
+      cache.measurements = cache.measurements
+        .filter(m => m.ChildID !== childId)
         .concat(measurements);
       saveCache();
     } catch (e) { /* ignore */ }
@@ -763,9 +859,7 @@ async function renderGrowthChart(childId) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      scales: {
-        y: { min: -5, max: 3, title: { display: true, text: 'Z-score' } }
-      }
+      scales: { y: { min: -5, max: 3, title: { display: true, text: 'Z-score' } } }
     }
   });
 }
@@ -775,6 +869,7 @@ async function renderGrowthChart(childId) {
  * ========================================================================== */
 function renderFeedingCalculator(childId) {
   const el = document.getElementById('feedingCalc');
+  if (!el) return;
   const child = (cache.children || []).find(c => c.ChildID === childId);
   if (!child) {
     el.innerHTML = '<p class="muted">Select a child to see dosing.</p>';
@@ -789,11 +884,11 @@ function renderFeedingCalculator(childId) {
     return;
   }
   const w = Number(last.Weight_kg);
-  const rutf = Math.max(1, Math.round(w * 0.4));   // ~200 kcal/kg/day ÷ 500 kcal/sachet
-  const f75PerDay = Math.round(130 * w);           // 130 mL/kg/day
-  const f75PerFeed = Math.round(f75PerDay / 8);    // 8 feeds
-  const f100PerDay = Math.round(150 * w);          // 150 mL/kg/day
-  const f100PerFeed = Math.round(f100PerDay / 6);  // 6 feeds
+  const rutf = Math.max(1, Math.round(w * 0.4));
+  const f75PerDay = Math.round(130 * w);
+  const f75PerFeed = Math.round(f75PerDay / 8);
+  const f100PerDay = Math.round(150 * w);
+  const f100PerFeed = Math.round(f100PerDay / 6);
 
   el.innerHTML = `
     <p><strong>Child:</strong> ${escapeHtml(child.Name)}
@@ -819,16 +914,18 @@ function renderFeedingCalculator(childId) {
  * DEFAULTERS
  * ========================================================================== */
 async function loadDefaulters() {
-  const days = document.getElementById('defaulterDays').value || 14;
+  const daysEl = document.getElementById('defaulterDays');
+  const days = (daysEl && daysEl.value) || 14;
   const el = document.getElementById('defaultersList');
+  if (!el) return;
   el.innerHTML = '<p class="muted">Loading…</p>';
-  if (!navigator.onLine) {
-    el.innerHTML = '<p class="muted">Offline — defaulter list requires a connection.</p>';
+  if (!currentUser || !navigator.onLine) {
+    el.innerHTML = '<p class="muted">Sign in and go online to load defaulters.</p>';
     return;
   }
   try {
     const res = await apiGet('getDefaulters', { days });
-    if (res.error) throw new Error(res.error);
+    if (!res || res.error) throw new Error((res && res.error) || 'Unknown error');
     if (!res.count) {
       el.innerHTML = '<p class="muted">No defaulters in this window. 🎉</p>';
       return;
@@ -864,14 +961,15 @@ async function loadDefaulters() {
  * ========================================================================== */
 async function loadSupplies() {
   const el = document.getElementById('suppliesList');
+  if (!el) return;
   el.innerHTML = '<p class="muted">Loading…</p>';
-  if (!navigator.onLine) {
-    el.innerHTML = '<p class="muted">Offline — supply status requires a connection.</p>';
+  if (!currentUser || !navigator.onLine) {
+    el.innerHTML = '<p class="muted">Sign in and go online to load supplies.</p>';
     return;
   }
   try {
     const res = await apiGet('getSupplyStatus');
-    if (!Array.isArray(res)) throw new Error('Unexpected response');
+    if (!Array.isArray(res)) throw new Error((res && res.error) || 'Unexpected response');
     if (!res.length) {
       el.innerHTML = '<p class="muted">No supply records yet.</p>';
       return;
@@ -909,8 +1007,10 @@ function escapeHtml(s) {
 
 function viewChild(id) {
   currentChildId = id;
-  document.querySelector('.tab[data-tab="measure"]').click();
-  document.getElementById('measureChildSelect').value = id;
+  const tab = document.querySelector('.tab[data-tab="measure"]');
+  if (tab) tab.click();
+  const sel = document.getElementById('measureChildSelect');
+  if (sel) sel.value = id;
   renderGrowthChart(id);
   renderFeedingCalculator(id);
 }
@@ -924,41 +1024,53 @@ function bindTabs() {
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      const panel = document.getElementById('tab-' + btn.dataset.tab);
+      if (panel) panel.classList.add('active');
 
       if (btn.dataset.tab === 'measure') {
-        renderGrowthChart(document.getElementById('measureChildSelect').value);
-        renderFeedingCalculator(document.getElementById('measureChildSelect').value);
+        const sel = document.getElementById('measureChildSelect');
+        renderGrowthChart(sel ? sel.value : '');
+        renderFeedingCalculator(sel ? sel.value : '');
       }
       if (btn.dataset.tab === 'defaulters') loadDefaulters();
       if (btn.dataset.tab === 'supplies') loadSupplies();
     });
   });
 
-  document.getElementById('syncBtn').addEventListener('click', syncQueue);
-  document.getElementById('refreshBtn').addEventListener('click', refreshFromServer);
-  document.getElementById('loadDefaulters').addEventListener('click', loadDefaulters);
+  const syncBtn = document.getElementById('syncBtn');
+  if (syncBtn) syncBtn.addEventListener('click', syncQueue);
 
-  // Delegated handler for "View" buttons (survives list re-renders)
-  document.getElementById('childrenList').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-view-child]');
-    if (btn) viewChild(btn.getAttribute('data-view-child'));
-  });
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', refreshFromServer);
+
+  const loadDefBtn = document.getElementById('loadDefaulters');
+  if (loadDefBtn) loadDefBtn.addEventListener('click', loadDefaulters);
+
+  const childrenList = document.getElementById('childrenList');
+  if (childrenList) {
+    childrenList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-view-child]');
+      if (btn) viewChild(btn.getAttribute('data-view-child'));
+    });
+  }
 }
 
 function bindForms() {
-  document.getElementById('newChildForm').addEventListener('submit', e => {
+  const newChildForm = document.getElementById('newChildForm');
+  if (newChildForm) newChildForm.addEventListener('submit', e => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target).entries());
     enqueue('child', data);
-    document.getElementById('newChildMsg').textContent =
-      '✓ Saved locally. Will sync automatically when online.';
+    const msg = document.getElementById('newChildMsg');
+    if (msg) msg.textContent = '✓ Saved locally. Will sync when online.';
     e.target.reset();
   });
 
-  document.getElementById('measurementForm').addEventListener('submit', e => {
+  const measurementForm = document.getElementById('measurementForm');
+  if (measurementForm) measurementForm.addEventListener('submit', e => {
     e.preventDefault();
-    const childId = document.getElementById('measureChildSelect').value;
+    const sel = document.getElementById('measureChildSelect');
+    const childId = sel ? sel.value : '';
     if (!childId) { alert('Select a child first.'); return; }
     const child = (cache.children || []).find(c => c.ChildID === childId);
     if (!child) { alert('Child not found in cache. Refresh first.'); return; }
@@ -990,7 +1102,6 @@ function bindForms() {
       Notes: fd.Notes || ''
     };
 
-    // Optimistic local update so the chart reflects the new point immediately
     if (!cache.measurements) cache.measurements = [];
     cache.measurements.push(payload);
     saveCache();
@@ -1007,9 +1118,11 @@ function bindForms() {
     e.target.reset();
   });
 
-  document.getElementById('feedingForm').addEventListener('submit', e => {
+  const feedingForm = document.getElementById('feedingForm');
+  if (feedingForm) feedingForm.addEventListener('submit', e => {
     e.preventDefault();
-    const childId = document.getElementById('feedingChildSelect').value;
+    const sel = document.getElementById('feedingChildSelect');
+    const childId = sel ? sel.value : '';
     if (!childId) { alert('Select a child first.'); return; }
     const data = Object.fromEntries(new FormData(e.target).entries());
     data.ChildID = childId;
@@ -1018,7 +1131,8 @@ function bindForms() {
     e.target.reset();
   });
 
-  document.getElementById('supplyForm').addEventListener('submit', e => {
+  const supplyForm = document.getElementById('supplyForm');
+  if (supplyForm) supplyForm.addEventListener('submit', e => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target).entries());
     enqueue('supply', data);
@@ -1027,17 +1141,231 @@ function bindForms() {
     loadSupplies();
   });
 
-  document.getElementById('measureChildSelect').addEventListener('change', e => {
+  const measureSel = document.getElementById('measureChildSelect');
+  if (measureSel) measureSel.addEventListener('change', e => {
     currentChildId = e.target.value;
     renderGrowthChart(currentChildId);
     renderFeedingCalculator(currentChildId);
   });
 
-  document.getElementById('feedingChildSelect').addEventListener('change', e => {
+  const feedingSel = document.getElementById('feedingChildSelect');
+  if (feedingSel) feedingSel.addEventListener('change', e => {
     renderFeedingCalculator(e.target.value);
   });
 
-  document.getElementById('childSearch').addEventListener('input', renderChildrenList);
+  const search = document.getElementById('childSearch');
+  if (search) search.addEventListener('input', renderChildrenList);
+}
+
+/* ============================================================================
+ * UI STATE
+ * ========================================================================== */
+function showUI(state, opts) {
+  opts = opts || {};
+  const signInGate = document.getElementById('signInGate');
+  const notAuthGate = document.getElementById('notAuthorizedGate');
+  const appRoot = document.getElementById('appRoot');
+  const signInBtn = document.getElementById('signInBtn');
+  const signOutBtn = document.getElementById('signOutBtn');
+
+  if (signInGate) signInGate.style.display = 'none';
+  if (notAuthGate) notAuthGate.style.display = 'none';
+  if (appRoot) appRoot.style.display = 'none';
+
+  if (state === 'signed-out') {
+    if (signInGate) signInGate.style.display = 'block';
+    if (signInBtn) signInBtn.style.display = 'inline-block';
+    if (signOutBtn) signOutBtn.style.display = 'none';
+  } else if (state === 'not-authorized') {
+    if (notAuthGate) notAuthGate.style.display = 'block';
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = 'inline-block';
+    const emailEl = document.getElementById('notAuthEmail');
+    if (emailEl && opts.email) emailEl.textContent = opts.email;
+  } else if (state === 'authorized') {
+    if (appRoot) appRoot.style.display = 'block';
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = 'inline-block';
+  } else if (state === 'checking') {
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = 'none';
+  }
+}
+
+function renderUserBadge(user) {
+  const userEl = document.getElementById('authUser');
+  if (!userEl) return;
+  const initial = (user.displayName || user.email || '?')
+    .trim().charAt(0).toUpperCase();
+  userEl.innerHTML = `
+    <span style="display:inline-flex;width:28px;height:28px;
+      border-radius:50%;background:var(--primary);color:#fff;
+      align-items:center;justify-content:center;
+      font-weight:600;font-size:0.85rem;">
+      ${escapeHtml(initial)}
+    </span>
+    <span><strong>${escapeHtml(user.displayName || user.email || '')}</strong>
+    <span class="muted"> · ${escapeHtml(user.email || '')}</span></span>
+  `;
+}
+
+/* ============================================================================
+ * FIREBASE AUTH + BACKEND AUTHORIZATION
+ * ========================================================================== */
+async function checkBackendAuthorization() {
+  if (!currentUser) return;
+  const user = currentUser;
+
+  try {
+    const ping = await apiCall('ping');
+
+    if (ping && ping.ok) {
+      localStorage.setItem(AUTH_UID_KEY, user.uid);
+      showUI('authorized');
+      await syncQueue();
+      await refreshFromServer();
+      return;
+    }
+
+    if (ping && ping.code === 'NOT_AUTHORIZED') {
+      localStorage.removeItem(AUTH_UID_KEY);
+      showUI('not-authorized', { email: user.email });
+      return;
+    }
+
+    // Unexpected response
+    console.warn('Unexpected ping response:', ping);
+    showUI('not-authorized', { email: user.email });
+    alert('Backend error: ' + ((ping && ping.error) || 'Unknown'));
+  } catch (e) {
+    console.warn('Authorization check failed:', e);
+
+    // Offline fallback: if this same UID was previously authorized on this
+    // device, allow offline access. Otherwise block.
+    const lastUid = localStorage.getItem(AUTH_UID_KEY);
+    if (!navigator.onLine && lastUid === user.uid) {
+      showUI('authorized');
+      return;
+    }
+
+    if (!navigator.onLine) {
+      showUI('not-authorized', { email: user.email });
+      alert('You are offline and your access has not been verified on this ' +
+            'device. Connect to the internet and sign in again.');
+      return;
+    }
+
+    showUI('not-authorized', { email: user.email });
+    alert('Could not verify your access. Please try again.\n\n' +
+          (e.message || ''));
+  }
+}
+
+async function handleAuthStateChange(user) {
+  currentUser = user;
+  const userEl = document.getElementById('authUser');
+
+  if (!user) {
+    currentIdToken = null;
+    if (userEl) userEl.innerHTML = '<span class="muted">Not signed in</span>';
+    showUI('signed-out');
+
+    // Wipe local PHI only on explicit sign-out (not on initial page load,
+    // where Firebase briefly fires null before restoring the session).
+    if (hadUser) {
+      hadUser = false;
+      cache = {};
+      saveCache();
+    }
+    return;
+  }
+
+  hadUser = true;
+
+  try {
+    currentIdToken = await user.getIdToken();
+  } catch (e) {
+    currentIdToken = null;
+  }
+
+  renderUserBadge(user);
+  showUI('checking');
+
+  await checkBackendAuthorization();
+}
+
+function initFirebaseAuth() {
+  if (typeof firebase === 'undefined') {
+    const el = document.getElementById('authUser');
+    if (el) el.innerHTML = '<span style="color:#dc2626;">Firebase SDK failed to load. Check your internet connection and reload.</span>';
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  firebaseAuth = firebase.auth();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+  const doSignIn = async () => {
+    try {
+      await firebaseAuth.signInWithPopup(googleProvider);
+    } catch (err) {
+      if (err.code === 'auth/popup-blocked' ||
+          err.code === 'auth/cancelled-popup-request') {
+        try { await firebaseAuth.signInWithRedirect(googleProvider); return; }
+        catch (e2) { /* fall through */ }
+      }
+      alert('Sign-in failed: ' + (err.message || err.code || 'unknown error'));
+    }
+  };
+
+  const signInBtn = document.getElementById('signInBtn');
+  const signInGateBtn = document.getElementById('signInGateBtn');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const signOutNotAuthBtn = document.getElementById('signOutNotAuthBtn');
+  const retryAuthBtn = document.getElementById('retryAuthBtn');
+
+  if (signInBtn) signInBtn.addEventListener('click', doSignIn);
+  if (signInGateBtn) signInGateBtn.addEventListener('click', doSignIn);
+
+  if (signOutBtn) signOutBtn.addEventListener('click', () => {
+    if (currentUser) {
+      const mineUnsynced = queue.filter(q =>
+        !q.ownerUid || q.ownerUid === currentUser.uid
+      );
+      if (mineUnsynced.length > 0) {
+        if (!confirm(
+          `You have ${mineUnsynced.length} unsynced record(s). ` +
+          `They will sync the next time you sign in on this device. ` +
+          `Sign out anyway?`
+        )) return;
+      }
+    }
+    localStorage.removeItem(AUTH_UID_KEY);
+    firebaseAuth.signOut();
+  });
+
+  if (signOutNotAuthBtn) signOutNotAuthBtn.addEventListener('click', () => {
+    localStorage.removeItem(AUTH_UID_KEY);
+    firebaseAuth.signOut();
+  });
+
+  if (retryAuthBtn) retryAuthBtn.addEventListener('click', async () => {
+    if (currentUser) {
+      showUI('checking');
+      await checkBackendAuthorization();
+    }
+  });
+
+  firebaseAuth.getRedirectResult().catch(() => {});
+  firebaseAuth.onAuthStateChanged(handleAuthStateChange);
+
+  // Refresh the ID token every 50 min so long field sessions stay signed in.
+  setInterval(async () => {
+    if (currentUser) {
+      try { currentIdToken = await currentUser.getIdToken(true); }
+      catch (e) { /* will refresh on next API call */ }
+    }
+  }, 50 * 60 * 1000);
 }
 
 /* ============================================================================
@@ -1050,9 +1378,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
 
-  saveQueue();         // reflect restored queue in the header
-  renderAll();         // paint cached data immediately
-  refreshFromServer(); // then hydrate from the server if online
+  saveQueue();
+  renderAll();
+  initFirebaseAuth();
 });
 </script>
 
